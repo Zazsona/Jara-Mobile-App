@@ -1,16 +1,46 @@
 package com.zazsona.jaramobileapp.settings;
 
+import android.content.Context;
+import android.util.Log;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.nio.file.Files;
+
 public class Settings
 {
-    private static String ip = "";
-    private static String port = "42995";
-    private static boolean notifications = true;
+    private static Settings settingsInstance = null;
+    private static final String fileName = "ConnectionSettings.json";
+
+    private String ip;
+    private String port;
+    private boolean notifications;
+    private Context context;
+
+    public static Settings getInstance(Context context)
+    {
+        if (settingsInstance == null)
+            settingsInstance = new Settings(context);
+
+        return settingsInstance;
+    }
+
+    private Settings(Context context)
+    {
+        restore();
+        this.context = context;
+    }
 
     /**
      * Gets IP
      * @return the ip
      */
-    public static String getIp()
+    public String getIp()
     {
         return ip;
     }
@@ -20,7 +50,7 @@ public class Settings
      *
      * @return port
      */
-    public static String getPort()
+    public String getPort()
     {
         return port;
     }
@@ -30,7 +60,7 @@ public class Settings
      *
      * @return notifications
      */
-    public static boolean isNotifications()
+    public boolean isNotifications()
     {
         return notifications;
     }
@@ -40,9 +70,9 @@ public class Settings
      *
      * @param ip the value to set
      */
-    protected static void setIp(String ip)
+    protected void setIp(String ip)
     {
-        Settings.ip = ip;
+        this.ip = ip;
     }
 
     /**
@@ -50,9 +80,9 @@ public class Settings
      *
      * @param port the value to set
      */
-    protected static void setPort(String port)
+    protected void setPort(String port)
     {
-        Settings.port = port;
+        this.port = port;
     }
 
     /**
@@ -60,8 +90,58 @@ public class Settings
      *
      * @param notifications the value to set
      */
-    protected static void setNotifications(boolean notifications)
+    protected void setNotifications(boolean notifications)
     {
-        Settings.notifications = notifications;
+        this.notifications = notifications;
+    }
+
+    public synchronized void save()
+    {
+        try
+        {
+            File file = new File(context.getFilesDir(), fileName);
+            if (!file.exists())
+            {
+                file.createNewFile();
+            }
+            Gson gson = new Gson();
+            String json = gson.toJson(this);
+            FileOutputStream fos = new FileOutputStream(file);
+            PrintWriter pw = new PrintWriter(fos);
+            pw.print(json);
+            pw.close();
+            fos.close();
+        }
+        catch (IOException e)
+        {
+            Log.e(this.getClass().getName(), "An error occurred when saving settings.", e);
+        }
+    }
+
+    public synchronized void restore()
+    {
+        try
+        {
+            File file = new File(context.getFilesDir(), fileName);
+            if (file.exists())
+            {
+                Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                String json = new String(Files.readAllBytes(file.toPath()));
+                settingsInstance = gson.fromJson(json, Settings.class);
+            }
+            else
+            {
+
+                ip = "";
+                port = "42995";
+                notifications = true;
+            }
+
+        }
+        catch (IOException e)
+        {
+            Log.e(this.getClass().getName(), "An error occurred when restoring settings.", e);
+            return;
+        }
     }
 }
