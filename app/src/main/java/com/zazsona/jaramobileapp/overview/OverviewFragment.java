@@ -51,7 +51,7 @@ public class OverviewFragment extends Fragment
             protected String doInBackground(String... strings)
             {
                 try{Thread.sleep(1000);}catch(InterruptedException e){e.printStackTrace();};
-                try{ConnectionManager.getInstance().connect();}catch(IOException e){e.printStackTrace();};
+                try{ConnectionManager.getInstance(getContext()).connect();}catch(IOException e){e.printStackTrace();};
                 return null;
             }
 
@@ -59,7 +59,7 @@ public class OverviewFragment extends Fragment
             protected void onPostExecute(String s)
             {
                 super.onPostExecute(s);
-                if (ConnectionManager.getInstance().isConnected())
+                if (ConnectionManager.getInstance(getContext()).isConnected())
                 {
                     onlineStatus.setImageResource(R.drawable.ic_cloud_black_24dp);
                 }
