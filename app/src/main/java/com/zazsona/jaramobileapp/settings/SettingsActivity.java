@@ -25,17 +25,20 @@ public class SettingsActivity extends AppCompatActivity implements SettingsFragm
     public void onNotificationsToggled(boolean value)
     {
         Settings.getInstance(this).setNotifications(value);
+        Settings.getInstance(this).save();
     }
 
     @Override
     public void onIPSet(String ip)
     {
         Settings.getInstance(this).setIp(ip);
+        Settings.getInstance(this).save();
     }
 
     @Override
     public void onPortSet(String port)
     {
         Settings.getInstance(this).setPort(port);
+        Settings.getInstance(this).save();
     }
 }

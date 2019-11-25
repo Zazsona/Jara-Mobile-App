@@ -14,13 +14,13 @@ import java.nio.file.Files;
 
 public class Settings
 {
-    private static Settings settingsInstance = null;
-    private static final String fileName = "ConnectionSettings.json";
+    private static transient Settings settingsInstance = null;
+    private static transient final String fileName = "ConnectionSettings.json";
+    private transient Context context;
 
     private String ip;
     private String port;
     private boolean notifications;
-    private Context context;
 
     public static Settings getInstance(Context context)
     {
@@ -32,8 +32,8 @@ public class Settings
 
     private Settings(Context context)
     {
-        restore();
         this.context = context;
+        restore();
     }
 
     /**
@@ -82,7 +82,7 @@ public class Settings
      */
     protected void setPort(String port)
     {
-        this.port = port;
+        this.port = port.trim();
     }
 
     /**
@@ -118,7 +118,7 @@ public class Settings
         }
     }
 
-    public synchronized void restore()
+    private synchronized void restore()
     {
         try
         {
@@ -127,14 +127,17 @@ public class Settings
             {
                 Gson gson = new GsonBuilder().setPrettyPrinting().create();
                 String json = new String(Files.readAllBytes(file.toPath()));
-                settingsInstance = gson.fromJson(json, Settings.class);
+                Settings settingsFromFile = gson.fromJson(json, Settings.class);
+
+                setIp(settingsFromFile.getIp());
+                setPort(settingsFromFile.getPort());
+                setNotifications(settingsFromFile.isNotifications());
             }
             else
             {
-
-                ip = "";
-                port = "42995";
-                notifications = true;
+                setIp("");
+                setPort("42995");
+                setNotifications(true);
             }
 
         }
