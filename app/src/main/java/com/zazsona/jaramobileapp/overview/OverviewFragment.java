@@ -15,23 +15,38 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.Toast;
+import android.widget.TextView;
 
+import com.jjoe64.graphview.GraphView;
+import com.jjoe64.graphview.series.DataPoint;
+import com.jjoe64.graphview.series.LineGraphSeries;
 import com.squareup.picasso.Picasso;
 import com.zazsona.jaramobileapp.R;
 import com.zazsona.jaramobileapp.connectivity.ConnectionManager;
 import com.zazsona.jaramobileapp.connectivity.responses.ReportResponse;
 
 import java.io.IOException;
+import java.time.Instant;
 
 public class OverviewFragment extends Fragment
 {
+    private OnOverviewFragmentInteractionListener mListener;
+
+    private ImageView vAvatarImage;
+    private TextView vBotName;
+    private TextView vCommandCount;
+    private TextView vUptime;
+    private TextView vOnlineStatus;
+    private GraphView vCommandGraph;
+
     public static final String STATUS_TAG = OverviewFragment.class.getCanonicalName()+".status";
     private ReportResponse status;
 
+    public static final String SERIES_TAG = OverviewFragment.class.getCanonicalName()+".series";
+    private DataPoint[] graphSeries;
+
     private BroadcastReceiver minuteBroadcastReceiver;
 
-    private OnOverviewFragmentInteractionListener mListener;
 
     public static OverviewFragment newInstance()
     {
@@ -45,20 +60,26 @@ public class OverviewFragment extends Fragment
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
     {
         View view = inflater.inflate(R.layout.fragment_overview, container, false);
-        final ImageView onlineStatus = view.findViewById(R.id.imageOnlineStatus);
+        vAvatarImage = view.findViewById(R.id.imageOnlineStatus);
+        vBotName = view.findViewById(R.id.botUserDesc);
+        vCommandGraph = view.findViewById(R.id.commandGraph);
+        vCommandCount = view.findViewById(R.id.commandsDesc);
+        vOnlineStatus = view.findViewById(R.id.statusDesc);
+        vUptime = view.findViewById(R.id.uptimeDesc);
         Button settingsButton = view.findViewById(R.id.settingsButton);
 
+        drawCommandGraph(false);
         if (savedInstanceState != null)
         {
             status = (ReportResponse) savedInstanceState.get(STATUS_TAG);
             if (status == null)
-                new ConnectionTask(onlineStatus).execute();
+                new ConnectionTask().execute();
             else
-                Picasso.get().load(status.getProfileImageURL()).into(onlineStatus);
+                drawReportResponse();
         }
         else
         {
-            new ConnectionTask(onlineStatus).execute();
+            new ConnectionTask().execute();
         }
 
         settingsButton.setOnClickListener(new View.OnClickListener()
@@ -75,7 +96,7 @@ public class OverviewFragment extends Fragment
             @Override
             public void onReceive(Context context, Intent intent)
             {
-                new ConnectionTask(onlineStatus).execute();
+                new ConnectionTask().execute();
             }
         };
         return view;
@@ -99,6 +120,7 @@ public class OverviewFragment extends Fragment
     public void onSaveInstanceState(@NonNull Bundle outState)
     {
         outState.putSerializable(STATUS_TAG, status);
+        outState.putSerializable(SERIES_TAG, graphSeries);
         super.onSaveInstanceState(outState);
     }
 
@@ -122,15 +144,65 @@ public class OverviewFragment extends Fragment
         public void onSettingsButtonPressed(View view);
     }
 
-    private class ConnectionTask extends AsyncTask<String, String, ReportResponse>
+    private void drawReportResponse()
     {
-        private ImageView avatarView;
-
-        public ConnectionTask(ImageView avatarView)
+        if (status != null)
         {
-            this.avatarView = avatarView;
+            Picasso.get().load(status.getProfileImageURL()).into(vAvatarImage);
+            vBotName.setText(status.getBotName());
+            vOnlineStatus.setText("Online");
+            vCommandCount.setText(""+status.getCommandUsageForSession());
+            vUptime.setText(formatSecondsToddHHmmss(status.getUptimeSeconds()));
+            drawCommandGraph(true);
+        }
+        else
+        {
+            vAvatarImage.setImageResource(R.drawable.ic_cloud_off_black_24dp);
+            vBotName.setText("Unknown");
+            vOnlineStatus.setText("Offline");
+            vCommandCount.setText("N/A");
+            vUptime.setText("N/A");
+            drawCommandGraph(false);
         }
 
+    }
+
+    private void drawCommandGraph(boolean refresh)
+    {
+        vCommandGraph.removeAllSeries();
+        LineGraphSeries<DataPoint> series = null;
+        int hoursSinceEpoch = (int) Math.floor(Instant.now().getEpochSecond()/3600.0);
+        int hourOfDay = hoursSinceEpoch % 24;
+        if (status != null && refresh)
+        {
+            DataPoint[] dataPoints = new DataPoint[24];
+            int startingEpochHour = hoursSinceEpoch-23;
+            int startingHour = hourOfDay-23;
+            for (int i = 0; i<24; i++)
+            {
+                int xAxisValue = startingHour+i;
+                int hourKey = startingEpochHour+i;
+                int hourValue = status.getUsageGraph().containsKey(hourKey) ? status.getUsageGraph().get(hourKey) : 0;
+                dataPoints[i] = new DataPoint(xAxisValue, hourValue);
+            }
+            graphSeries = dataPoints;
+            series = new LineGraphSeries<>(graphSeries);
+            vCommandGraph.addSeries(series);
+        }
+        else if (graphSeries != null && !refresh)
+        {
+            series = new LineGraphSeries<>(graphSeries);
+            vCommandGraph.addSeries(series);
+        }
+
+        vCommandGraph.getViewport().setMaxX(hourOfDay);
+        vCommandGraph.getViewport().setMinX(hourOfDay-23);
+        vCommandGraph.getViewport().setMinY(0);
+        vCommandGraph.getViewport().setXAxisBoundsManual(true);
+    }
+
+    private class ConnectionTask extends AsyncTask<String, String, ReportResponse>
+    {
         @Override
         protected ReportResponse doInBackground(String... strings)
         {
@@ -150,15 +222,29 @@ public class OverviewFragment extends Fragment
         protected void onPostExecute(ReportResponse reportResponse)
         {
             super.onPostExecute(reportResponse);
-            if (reportResponse != null)
-            {
-                Picasso.get().load(reportResponse.getProfileImageURL()).into(avatarView);
-                Toast.makeText(getContext(), "Commands: "+reportResponse.getCommandUsageForSession(), Toast.LENGTH_LONG).show();
-            }
-            else
-            {
-                avatarView.setImageResource(R.drawable.ic_cloud_off_black_24dp);
-            }
+            drawReportResponse();
         }
+    }
+
+    private String formatSecondsToddHHmmss(Long totalSeconds)
+    {
+        long remainingTime = totalSeconds;
+        long days = remainingTime / (24*60*60);
+        remainingTime -= days*(24*60*60);
+        long hours = remainingTime / (60*60);
+        remainingTime -= hours*(60*60);
+        long minutes = remainingTime / (60);
+        remainingTime -= minutes*(60);
+        long seconds = remainingTime;
+
+        if (days <= 99)
+        {
+            return String.format("%02d:%02d:%02d:%02d", days, hours, minutes, seconds);
+        }
+        else
+        {
+            return "99:59:59:59+";
+        }
+
     }
 }
