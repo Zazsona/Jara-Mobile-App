@@ -14,6 +14,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -38,9 +39,12 @@ public class OverviewFragment extends Fragment
     private TextView vUptime;
     private TextView vOnlineStatus;
     private GraphView vCommandGraph;
+    private FrameLayout vLoadingFrame;
 
     public static final String STATUS_TAG = OverviewFragment.class.getCanonicalName()+".status";
     private ReportResponse status;
+    public static final String PAUSE_TIME_TAG = OverviewFragment.class.getCanonicalName()+".pausetime";
+    private long pauseSecond;
 
     public static final String SERIES_TAG = OverviewFragment.class.getCanonicalName()+".series";
     private DataPoint[] graphSeries;
@@ -66,11 +70,13 @@ public class OverviewFragment extends Fragment
         vCommandCount = view.findViewById(R.id.commandsDesc);
         vOnlineStatus = view.findViewById(R.id.statusDesc);
         vUptime = view.findViewById(R.id.uptimeDesc);
+        vLoadingFrame = view.findViewById(R.id.loadingFrame);
         Button settingsButton = view.findViewById(R.id.settingsButton);
 
-        drawCommandGraph(false);
+        drawReportResponse(); //TODO: Remove when design s nulled
         if (savedInstanceState != null)
         {
+            pauseSecond = savedInstanceState.getLong(PAUSE_TIME_TAG);
             status = (ReportResponse) savedInstanceState.get(STATUS_TAG);
             if (status == null)
                 new ConnectionTask().execute();
@@ -103,23 +109,30 @@ public class OverviewFragment extends Fragment
     }
 
     @Override
-    public void onResume()
-    {
-        super.onResume();
-        getActivity().registerReceiver(minuteBroadcastReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
-    }
-
-    @Override
     public void onPause()
     {
         super.onPause();
         getActivity().unregisterReceiver(minuteBroadcastReceiver);
+        pauseSecond = Instant.now().getEpochSecond();
+    }
+
+    @Override
+    public void onResume()
+    {
+        super.onResume();
+        getActivity().registerReceiver(minuteBroadcastReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
+        if (pauseSecond > 0 && (pauseSecond / 60) < (Instant.now().getEpochSecond() / 60))
+        {
+            status = null;
+            new ConnectionTask().execute();
+        }
     }
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState)
     {
         outState.putSerializable(STATUS_TAG, status);
+        outState.putSerializable(PAUSE_TIME_TAG, pauseSecond);
         outState.putSerializable(SERIES_TAG, graphSeries);
         super.onSaveInstanceState(outState);
     }
@@ -146,7 +159,7 @@ public class OverviewFragment extends Fragment
 
     private void drawReportResponse()
     {
-        if (status != null)
+        if (status != null && status.isOnline())
         {
             Picasso.get().load(status.getProfileImageURL()).into(vAvatarImage);
             vBotName.setText(status.getBotName());
@@ -173,7 +186,7 @@ public class OverviewFragment extends Fragment
         LineGraphSeries<DataPoint> series = null;
         int hoursSinceEpoch = (int) Math.floor(Instant.now().getEpochSecond()/3600.0);
         int hourOfDay = hoursSinceEpoch % 24;
-        if (status != null && refresh)
+        if (status != null && status.isOnline() && refresh)
         {
             DataPoint[] dataPoints = new DataPoint[24];
             int startingEpochHour = hoursSinceEpoch-23;
@@ -204,17 +217,24 @@ public class OverviewFragment extends Fragment
     private class ConnectionTask extends AsyncTask<String, String, ReportResponse>
     {
         @Override
+        protected void onPreExecute()
+        {
+            super.onPreExecute();
+            if (status == null)
+                vLoadingFrame.setVisibility(View.VISIBLE);
+        }
+
+        @Override
         protected ReportResponse doInBackground(String... strings)
         {
             try
             {
-                status = ConnectionManager.getInstance(getContext()).sendReportRequest();
-                return status;
+                return ConnectionManager.getInstance(getContext()).sendReportRequest();
             }
             catch (IOException | ClassNotFoundException e)
             {
                 e.printStackTrace();
-                return null;
+                return new ReportResponse();
             }
         }
 
@@ -222,6 +242,8 @@ public class OverviewFragment extends Fragment
         protected void onPostExecute(ReportResponse reportResponse)
         {
             super.onPostExecute(reportResponse);
+            status = reportResponse;
+            vLoadingFrame.setVisibility(View.GONE);
             drawReportResponse();
         }
     }
