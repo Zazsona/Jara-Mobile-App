@@ -1,10 +1,10 @@
-package com.zazsona.jaramobileapp.connectivity;
+package com.zazsona.jaramobileapp.model.connectivity;
 import android.content.Context;
 
 import com.google.gson.Gson;
-import com.zazsona.jaramobileapp.connectivity.requests.ReportRequest;
-import com.zazsona.jaramobileapp.connectivity.responses.ReportResponse;
-import com.zazsona.jaramobileapp.settings.Settings;
+import com.google.gson.JsonParseException;
+import com.zazsona.jaramobileapp.model.connectivity.requests.ReportRequest;
+import com.zazsona.jaramobileapp.model.connectivity.responses.ReportResponse;
 
 import java.io.IOException;
 import java.io.ObjectInputStream;
@@ -61,23 +61,36 @@ public class ConnectionManager
 
     public boolean sendPing() throws IOException
     {
-        connect();
-        boolean success = isConnected();
-        disconnect();
-        return success;
+        synchronized (connectionManager)
+        {
+            connect();
+            boolean success = isConnected();
+            disconnect();
+            return success;
+        }
     }
 
-    public ReportResponse sendReportRequest() throws IOException, ClassNotFoundException
+    public ReportResponse sendReportRequest()
     {
-        connect();
-        ReportRequest reportRequest = new ReportRequest();
-        String requestJson = gson.toJson(reportRequest);
-        oos.writeObject(requestJson);
-        oos.flush();
-        String responseJson = (String) ois.readObject();
-        disconnect();
-        ReportResponse reportResponse = gson.fromJson(responseJson, ReportResponse.class);
-        return reportResponse;
+        synchronized (connectionManager)
+        {
+            try
+            {
+                connect();
+                ReportRequest reportRequest = new ReportRequest();
+                String requestJson = gson.toJson(reportRequest);
+                oos.writeObject(requestJson);
+                oos.flush();
+                String responseJson = (String) ois.readObject();
+                disconnect();
+                ReportResponse reportResponse = gson.fromJson(responseJson, ReportResponse.class);
+                return reportResponse;
+            }
+            catch (IOException | ClassNotFoundException | JsonParseException e)
+            {
+                return ReportResponse.getOfflineResponse();
+            }
+        }
     }
 
     public boolean isConnected()

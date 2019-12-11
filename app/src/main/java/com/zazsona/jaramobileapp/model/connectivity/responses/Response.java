@@ -1,4 +1,4 @@
-package com.zazsona.jaramobileapp.connectivity.responses;
+package com.zazsona.jaramobileapp.model.connectivity.responses;
 
 import java.io.Serializable;
 

@@ -1,4 +1,4 @@
-package com.zazsona.jaramobileapp.connectivity.responses;
+package com.zazsona.jaramobileapp.model.connectivity.responses;
 
 import java.util.HashMap;
 
@@ -14,6 +14,22 @@ public class ReportResponse extends Response
     private int connectedGuilds;
     private long commandUsageForSession;
     private HashMap<Integer, Integer> usageGraph; //HourSinceEpoch : Commands
+
+    public static ReportResponse getOfflineResponse()
+    {
+        ReportResponse offlineResponse = new ReportResponse();
+        offlineResponse.botName = "N/A";
+        offlineResponse.profileImageURL = null;
+        offlineResponse.activeGuilds = 0;
+        offlineResponse.shardCount = 0;
+        offlineResponse.online = false;
+        offlineResponse.uptimeSeconds = 0;
+        offlineResponse.ping = 0;
+        offlineResponse.connectedGuilds = 0;
+        offlineResponse.commandUsageForSession = 0;
+        offlineResponse.usageGraph = new HashMap<>();
+        return offlineResponse;
+    }
 
     public String getBotName()
     {
