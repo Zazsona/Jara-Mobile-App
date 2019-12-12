@@ -1,15 +1,14 @@
-package com.zazsona.jaramobileapp.overview;
+package com.zazsona.jaramobileapp.view.overview;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.AsyncTask;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -23,14 +22,15 @@ import com.jjoe64.graphview.series.DataPoint;
 import com.jjoe64.graphview.series.LineGraphSeries;
 import com.squareup.picasso.Picasso;
 import com.zazsona.jaramobileapp.R;
-import com.zazsona.jaramobileapp.connectivity.ConnectionManager;
-import com.zazsona.jaramobileapp.connectivity.responses.ReportResponse;
+import com.zazsona.jaramobileapp.model.connectivity.responses.ReportResponse;
+import com.zazsona.jaramobileapp.viewmodel.OverviewViewModel;
 
-import java.io.IOException;
 import java.time.Instant;
 
 public class OverviewFragment extends Fragment
 {
+    private OverviewViewModel overviewViewModel;
+
     private OnOverviewFragmentInteractionListener mListener;
 
     private ImageView vAvatarImage;
@@ -40,17 +40,10 @@ public class OverviewFragment extends Fragment
     private TextView vOnlineStatus;
     private GraphView vCommandGraph;
     private FrameLayout vLoadingFrame;
+    private Button vSettingsButton;
 
-    public static final String STATUS_TAG = OverviewFragment.class.getCanonicalName()+".status";
-    private ReportResponse status;
     public static final String PAUSE_TIME_TAG = OverviewFragment.class.getCanonicalName()+".pausetime";
     private long pauseSecond;
-
-    public static final String SERIES_TAG = OverviewFragment.class.getCanonicalName()+".series";
-    private DataPoint[] graphSeries;
-
-    private BroadcastReceiver minuteBroadcastReceiver;
-
 
     public static OverviewFragment newInstance()
     {
@@ -63,6 +56,8 @@ public class OverviewFragment extends Fragment
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState)
     {
+        overviewViewModel = new ViewModelProvider(this).get(OverviewViewModel.class);
+
         View view = inflater.inflate(R.layout.fragment_overview, container, false);
         vAvatarImage = view.findViewById(R.id.imageOnlineStatus);
         vBotName = view.findViewById(R.id.botUserDesc);
@@ -71,24 +66,22 @@ public class OverviewFragment extends Fragment
         vOnlineStatus = view.findViewById(R.id.statusDesc);
         vUptime = view.findViewById(R.id.uptimeDesc);
         vLoadingFrame = view.findViewById(R.id.loadingFrame);
-        Button settingsButton = view.findViewById(R.id.settingsButton);
+        vSettingsButton = view.findViewById(R.id.settingsButton);
+        ReportResponse status = overviewViewModel.getStatus().getValue();
+        //drawReportResponse(status);
 
-        drawReportResponse(); //TODO: Remove when design s nulled
-        if (savedInstanceState != null)
-        {
-            pauseSecond = savedInstanceState.getLong(PAUSE_TIME_TAG);
-            status = (ReportResponse) savedInstanceState.get(STATUS_TAG);
-            if (status == null)
-                new ConnectionTask().execute();
-            else
-                drawReportResponse();
-        }
-        else
-        {
-            new ConnectionTask().execute();
-        }
 
-        settingsButton.setOnClickListener(new View.OnClickListener()
+        overviewViewModel.getStatus().observe(this.getViewLifecycleOwner(), new Observer<ReportResponse>()
+        {
+            @Override
+            public void onChanged(ReportResponse reportResponse)
+            {
+                Log.d("YEET", "YEET");
+                drawReportResponse(reportResponse);
+            }
+        });
+
+        vSettingsButton.setOnClickListener(new View.OnClickListener()
         {
 
             @Override
@@ -97,14 +90,6 @@ public class OverviewFragment extends Fragment
                 mListener.onSettingsButtonPressed(view);
             }
         });
-        minuteBroadcastReceiver = new BroadcastReceiver()
-        {
-            @Override
-            public void onReceive(Context context, Intent intent)
-            {
-                new ConnectionTask().execute();
-            }
-        };
         return view;
     }
 
@@ -112,7 +97,6 @@ public class OverviewFragment extends Fragment
     public void onPause()
     {
         super.onPause();
-        getActivity().unregisterReceiver(minuteBroadcastReceiver);
         pauseSecond = Instant.now().getEpochSecond();
     }
 
@@ -120,20 +104,17 @@ public class OverviewFragment extends Fragment
     public void onResume()
     {
         super.onResume();
-        getActivity().registerReceiver(minuteBroadcastReceiver, new IntentFilter(Intent.ACTION_TIME_TICK));
-        if (pauseSecond > 0 && (pauseSecond / 60) < (Instant.now().getEpochSecond() / 60))
+        if (pauseSecond > 0 && (pauseSecond / 60) < (Instant.now().getEpochSecond() / 60)) //TODO: Maybe remove
         {
-            status = null;
-            new ConnectionTask().execute();
+            //status = null;
+            //new ConnectionTask().execute();
         }
     }
 
     @Override
     public void onSaveInstanceState(@NonNull Bundle outState)
     {
-        outState.putSerializable(STATUS_TAG, status);
         outState.putSerializable(PAUSE_TIME_TAG, pauseSecond);
-        outState.putSerializable(SERIES_TAG, graphSeries);
         super.onSaveInstanceState(outState);
     }
 
@@ -157,7 +138,7 @@ public class OverviewFragment extends Fragment
         public void onSettingsButtonPressed(View view);
     }
 
-    private void drawReportResponse()
+    private void drawReportResponse(ReportResponse status)
     {
         if (status != null && status.isOnline())
         {
@@ -166,7 +147,7 @@ public class OverviewFragment extends Fragment
             vOnlineStatus.setText("Online");
             vCommandCount.setText(""+status.getCommandUsageForSession());
             vUptime.setText(formatSecondsToddHHmmss(status.getUptimeSeconds()));
-            drawCommandGraph(true);
+            drawCommandGraph(status);
         }
         else
         {
@@ -175,18 +156,18 @@ public class OverviewFragment extends Fragment
             vOnlineStatus.setText("Offline");
             vCommandCount.setText("N/A");
             vUptime.setText("N/A");
-            drawCommandGraph(false);
+            drawCommandGraph(status);
         }
 
     }
 
-    private void drawCommandGraph(boolean refresh)
+    private void drawCommandGraph(ReportResponse status)
     {
         vCommandGraph.removeAllSeries();
         LineGraphSeries<DataPoint> series = null;
         int hoursSinceEpoch = (int) Math.floor(Instant.now().getEpochSecond()/3600.0);
         int hourOfDay = hoursSinceEpoch % 24;
-        if (status != null && status.isOnline() && refresh)
+        if (status != null && status.isOnline())
         {
             DataPoint[] dataPoints = new DataPoint[24];
             int startingEpochHour = hoursSinceEpoch-23;
@@ -198,54 +179,13 @@ public class OverviewFragment extends Fragment
                 int hourValue = status.getUsageGraph().containsKey(hourKey) ? status.getUsageGraph().get(hourKey) : 0;
                 dataPoints[i] = new DataPoint(xAxisValue, hourValue);
             }
-            graphSeries = dataPoints;
-            series = new LineGraphSeries<>(graphSeries);
+            series = new LineGraphSeries<>(dataPoints);
             vCommandGraph.addSeries(series);
         }
-        else if (graphSeries != null && !refresh)
-        {
-            series = new LineGraphSeries<>(graphSeries);
-            vCommandGraph.addSeries(series);
-        }
-
         vCommandGraph.getViewport().setMaxX(hourOfDay);
         vCommandGraph.getViewport().setMinX(hourOfDay-23);
         vCommandGraph.getViewport().setMinY(0);
         vCommandGraph.getViewport().setXAxisBoundsManual(true);
-    }
-
-    private class ConnectionTask extends AsyncTask<String, String, ReportResponse>
-    {
-        @Override
-        protected void onPreExecute()
-        {
-            super.onPreExecute();
-            if (status == null)
-                vLoadingFrame.setVisibility(View.VISIBLE);
-        }
-
-        @Override
-        protected ReportResponse doInBackground(String... strings)
-        {
-            try
-            {
-                return ConnectionManager.getInstance(getContext()).sendReportRequest();
-            }
-            catch (IOException | ClassNotFoundException e)
-            {
-                e.printStackTrace();
-                return new ReportResponse();
-            }
-        }
-
-        @Override
-        protected void onPostExecute(ReportResponse reportResponse)
-        {
-            super.onPostExecute(reportResponse);
-            status = reportResponse;
-            vLoadingFrame.setVisibility(View.GONE);
-            drawReportResponse();
-        }
     }
 
     private String formatSecondsToddHHmmss(Long totalSeconds)

@@ -1,4 +1,4 @@
-package com.zazsona.jaramobileapp.overview;
+package com.zazsona.jaramobileapp.view.overview;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
@@ -17,7 +17,7 @@ import android.view.View;
 
 import com.zazsona.jaramobileapp.R;
 import com.zazsona.jaramobileapp.ServerPollWorker;
-import com.zazsona.jaramobileapp.settings.SettingsActivity;
+import com.zazsona.jaramobileapp.view.settings.SettingsActivity;
 import java.util.concurrent.TimeUnit;
 
 import static com.zazsona.jaramobileapp.NotificationFactory.ERROR_NOTIF_CHANNEL_ID;
@@ -33,13 +33,7 @@ public class MainActivity extends AppCompatActivity implements OverviewFragment.
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        WorkManager workManager = WorkManager.getInstance(this);
-        Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();
-        PeriodicWorkRequest pwr = new PeriodicWorkRequest.Builder(ServerPollWorker.class, PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS, PeriodicWorkRequest.MIN_PERIODIC_FLEX_MILLIS, TimeUnit.MILLISECONDS)
-                .addTag(WorkerTag)
-                .setConstraints(constraints)
-                .build();
-        workManager.enqueueUniquePeriodicWork(WorkerTag, ExistingPeriodicWorkPolicy.REPLACE, pwr);
+        initiatePollWorker();
 
         FragmentManager fm = getSupportFragmentManager();
         if (fm.findFragmentById(R.id.mainLayout) == null)
@@ -48,6 +42,17 @@ public class MainActivity extends AppCompatActivity implements OverviewFragment.
                     .add(R.id.mainLayout, OverviewFragment.newInstance())
                     .commit();
         }
+    }
+
+    private void initiatePollWorker()
+    {
+        WorkManager workManager = WorkManager.getInstance(this);
+        Constraints constraints = new Constraints.Builder().setRequiredNetworkType(NetworkType.UNMETERED).build();
+        PeriodicWorkRequest pwr = new PeriodicWorkRequest.Builder(ServerPollWorker.class, PeriodicWorkRequest.MIN_PERIODIC_INTERVAL_MILLIS, TimeUnit.MILLISECONDS, PeriodicWorkRequest.MIN_PERIODIC_FLEX_MILLIS, TimeUnit.MILLISECONDS)
+                .addTag(WorkerTag)
+                .setConstraints(constraints)
+                .build();
+        workManager.enqueueUniquePeriodicWork(WorkerTag, ExistingPeriodicWorkPolicy.REPLACE, pwr);
     }
 
     private void createNotificationChannels()
