@@ -8,14 +8,12 @@ import androidx.core.app.NotificationManagerCompat;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
-import com.zazsona.jaramobileapp.connectivity.ConnectionManager;
-import com.zazsona.jaramobileapp.overview.MainActivity;
-
-import java.io.IOException;
+import com.zazsona.jaramobileapp.model.ConnectionRepository;
+import com.zazsona.jaramobileapp.model.connectivity.responses.ReportResponse;
+import com.zazsona.jaramobileapp.view.overview.MainActivity;
 
 public class ServerPollWorker extends Worker
 {
-
     public ServerPollWorker(@NonNull Context appContext, @NonNull WorkerParameters workerParams)
     {
         super(appContext, workerParams);
@@ -25,17 +23,12 @@ public class ServerPollWorker extends Worker
     @Override
     public Result doWork()
     {
-        try
-        {
-            ConnectionManager connectionManager = ConnectionManager.getInstance(getApplicationContext());
-            connectionManager.sendPing();
-            //TODO: Do WOrk
-        }
-        catch (IOException e)
+        ReportResponse reportResponse = ConnectionRepository.getInstance(getApplicationContext()).getJaraStatus().getValue();
+        if (!reportResponse.isOnline())
         {
             NotificationManagerCompat notificationManager = NotificationManagerCompat.from(getApplicationContext());
             notificationManager.notify(1, NotificationFactory.getOfflineNotification(getApplicationContext(), MainActivity.class));
-            Log.e(getClass().getName(), e.toString());
+            Log.e(getClass().getName(), "Jara is offline.");
         }
         return Result.success();
     }
