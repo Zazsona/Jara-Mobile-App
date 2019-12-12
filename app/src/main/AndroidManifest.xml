@@ -13,14 +13,14 @@
             android:supportsRtl="true"
             android:theme="@style/Theme.Design.NoActionBar">
         <activity
-                android:name=".settings.SettingsActivity"
+                android:name=".view.settings.SettingsActivity"
                 android:label="@string/title_activity_settings"
-                android:parentActivityName=".overview.MainActivity">
+                android:parentActivityName=".view.overview.MainActivity">
             <meta-data
                     android:name="android.support.PARENT_ACTIVITY"
-                    android:value="com.zazsona.jaramobileapp.overview.MainActivity" />
+                    android:value=".view.overview.MainActivity" />
         </activity>
-        <activity android:name=".overview.MainActivity">
+        <activity android:name=".view.overview.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

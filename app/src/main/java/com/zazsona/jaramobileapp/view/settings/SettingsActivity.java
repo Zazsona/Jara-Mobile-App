@@ -1,15 +1,18 @@
-package com.zazsona.jaramobileapp.settings;
+package com.zazsona.jaramobileapp.view.settings;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.fragment.app.FragmentManager;
+import androidx.lifecycle.ViewModelProvider;
 
-import android.net.Uri;
 import android.os.Bundle;
 
 import com.zazsona.jaramobileapp.R;
+import com.zazsona.jaramobileapp.model.connectivity.Settings;
+import com.zazsona.jaramobileapp.viewmodel.SettingsViewModel;
 
 public class SettingsActivity extends AppCompatActivity implements SettingsFragment.OnFragmentInteractionListener
 {
+    private SettingsViewModel settingsViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState)
@@ -19,26 +22,28 @@ public class SettingsActivity extends AppCompatActivity implements SettingsFragm
 
         FragmentManager fm = getSupportFragmentManager();
         fm.beginTransaction().add(R.id.settingsLayout, new SettingsFragment()).commit();
+
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
     }
 
     @Override
     public void onNotificationsToggled(boolean value)
     {
-        Settings.getInstance(this).setNotifications(value);
-        Settings.getInstance(this).save();
+        settingsViewModel.getSettings().setNotifications(value);
+        settingsViewModel.getSettings().save();
     }
 
     @Override
     public void onIPSet(String ip)
     {
-        Settings.getInstance(this).setIp(ip);
-        Settings.getInstance(this).save();
+        settingsViewModel.getSettings().setIp(ip);
+        settingsViewModel.getSettings().save();
     }
 
     @Override
     public void onPortSet(String port)
     {
-        Settings.getInstance(this).setPort(port);
-        Settings.getInstance(this).save();
+        settingsViewModel.getSettings().setPort(port);
+        settingsViewModel.getSettings().save();
     }
 }

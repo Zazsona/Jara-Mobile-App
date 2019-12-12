@@ -1,12 +1,11 @@
-package com.zazsona.jaramobileapp.settings;
+package com.zazsona.jaramobileapp.view.settings;
 
 import android.content.Context;
-import android.net.Uri;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -15,13 +14,17 @@ import android.view.ViewGroup;
 import android.widget.EditText;
 
 import com.zazsona.jaramobileapp.R;
+import com.zazsona.jaramobileapp.model.connectivity.Settings;
+import com.zazsona.jaramobileapp.viewmodel.SettingsViewModel;
 
 
 public class SettingsFragment extends Fragment
 {
-    public static final String IP_ADDRESS = "com.zazsona.jaramobileapp.settings.ipaddress";
-    public static final String IP_PORT = "com.zazsona.jaramobileapp.settings.ipport";
-    public static final String NOTIFICATIONS_TOGGLE = "com.zazsona.jaramobileapp.settings.notiftoggle";
+    private SettingsViewModel settingsViewModel;
+
+    public static final String IP_ADDRESS = "com.zazsona.jaramobileapp.view.settings.ipaddress";
+    public static final String IP_PORT = "com.zazsona.jaramobileapp.view.settings.ipport";
+    public static final String NOTIFICATIONS_TOGGLE = "com.zazsona.jaramobileapp.view.settings.notiftoggle";
 
     private String ipAddress;
     private String ipPort;
@@ -38,6 +41,7 @@ public class SettingsFragment extends Fragment
     public void onCreate(Bundle savedInstanceState)
     {
         super.onCreate(savedInstanceState);
+        settingsViewModel = new ViewModelProvider(this).get(SettingsViewModel.class);
     }
 
     @Override
@@ -55,11 +59,11 @@ public class SettingsFragment extends Fragment
         }
         else
         {
-            ipAddress = Settings.getInstance(getActivity()).getIp();
+            ipAddress = settingsViewModel.getSettings().getIp();
             ipText.setText(ipAddress);
-            ipPort = Settings.getInstance(getContext()).getPort();
+            ipPort = settingsViewModel.getSettings().getPort();
             portText.setText(ipPort);
-            notificationsEnabled = Settings.getInstance(getActivity()).isNotifications();
+            notificationsEnabled = settingsViewModel.getSettings().isNotifications();
         }
 
         ipText.setOnKeyListener(new View.OnKeyListener()
